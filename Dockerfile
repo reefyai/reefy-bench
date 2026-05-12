@@ -11,14 +11,22 @@
 # hides itself, sysbench and fio keep working.
 
 # ── stage 1: build gpu-fryer ──────────────────────────────────────
-# Rust 1.86 (Mar 2026) is the floor: gpu-fryer's transitive deps pull
-# clap_lex 1.1.0 which requires Cargo's edition2024 (stable since 1.85).
-# --locked honours upstream's Cargo.lock so dep resolution stays
-# reproducible across rebuilds.
-FROM rust:1.86-slim AS fryer
+# gpu-fryer links directly against libcuda/cudart/cublas/cublasLt/curand/
+# nvrtc, so the builder needs the CUDA toolkit. The devel image ships
+# the stub libcuda.so the linker needs (the real driver lib is supplied
+# by CDI at runtime); runtime libs (cudart/cublas/...) are also here.
+# This stage is discarded after COPY - the published image stays runtime-
+# only. Rust 1.86+ is required for gpu-fryer's edition2024 deps.
+FROM nvidia/cuda:12.6.3-devel-ubuntu24.04 AS fryer
+ENV DEBIAN_FRONTEND=noninteractive \
+    LIBRARY_PATH=/usr/local/cuda/lib64/stubs:/usr/local/cuda/lib64 \
+    PATH=/root/.cargo/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git ca-certificates pkg-config libssl-dev \
+        curl build-essential pkg-config libssl-dev \
+        git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --default-toolchain 1.86.0 --profile minimal
 RUN cargo install --git https://github.com/huggingface/gpu-fryer \
         --locked --root /opt
 
