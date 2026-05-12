@@ -1,0 +1,56 @@
+name: Build and push reefy-bench
+
+# Builds the reefy-bench container and pushes to GHCR. Same pattern as
+# reefy-service / reefy-dev-fedora / reefy-qr-access: per-commit `sha-XXX`
+# tag, a date tag (vYYYY.MM.DD-NN), and a moving `latest`. The reefy-service
+# `apps/bench/app.json` pins a specific tag - bump it there to roll the app
+# forward on managed devices.
+#
+# Image is pulled anonymously by devices, so the GHCR package must be set
+# to PUBLIC once after the first push (one-time, in package settings).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+          DATE_TAG="v$(date -u +%Y.%m.%d)-$(printf '%02d' ${{ github.run_number }})"
+          {
+            echo "image=ghcr.io/reefyai/reefy-bench"
+            echo "sha_tag=sha-${SHORT_SHA}"
+            echo "date_tag=${DATE_TAG}"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.image }}:${{ steps.tags.outputs.sha_tag }}
+            ${{ steps.tags.outputs.image }}:${{ steps.tags.outputs.date_tag }}
+            ${{ steps.tags.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

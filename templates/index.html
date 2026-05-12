@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reefy Bench</title>
+<link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+<header class="page-head">
+    <h1>Reefy Bench</h1>
+    <div id="hw-banner">loading hardware info&hellip;</div>
+</header>
+
+<main>
+    <section class="card" data-card="cpu">
+        <header class="card-head">
+            <span class="card-title">CPU</span>
+            <span class="card-chevron">&#9656;</span>
+        </header>
+        <div class="card-body" hidden>
+            <p class="card-blurb">sysbench cpu run &middot; integer math kernel pinned to N threads for T seconds.</p>
+            <div class="form-row">
+                <label>Threads <input type="number" name="threads" min="1" value="1"></label>
+                <label>Seconds <input type="number" name="seconds" min="5" value="60"></label>
+            </div>
+            <div class="form-row">
+                <button class="run-btn" data-kind="cpu">Run CPU</button>
+                <span class="status"></span>
+            </div>
+            <pre class="output"></pre>
+        </div>
+    </section>
+
+    <section class="card" data-card="mem">
+        <header class="card-head">
+            <span class="card-title">Memory</span>
+            <span class="card-chevron">&#9656;</span>
+        </header>
+        <div class="card-body" hidden>
+            <p class="card-blurb">sysbench memory &middot; 1M block writes across nproc threads,
+                looped to hit the size target.</p>
+            <div class="form-row">
+                <label>Size (GB) <input type="number" name="size_gb" min="1" value="2"></label>
+            </div>
+            <div class="form-row">
+                <button class="run-btn" data-kind="mem">Run Memory</button>
+                <span class="status"></span>
+            </div>
+            <pre class="output"></pre>
+        </div>
+    </section>
+
+    <section class="card" data-card="disk">
+        <header class="card-head">
+            <span class="card-title">Disk</span>
+            <span class="card-chevron">&#9656;</span>
+        </header>
+        <div class="card-body" hidden>
+            <p class="card-blurb">fio &middot; 2 GB scratch file on the app's data volume.
+                4K random for IOPS; 1M sequential for throughput.</p>
+            <div class="form-row">
+                <label>Profile
+                    <select name="profile">
+                        <option value="randrw_4k" selected>Random 4K read/write</option>
+                        <option value="seq_1m">Sequential 1M read/write</option>
+                    </select>
+                </label>
+                <label>Seconds <input type="number" name="seconds" min="5" value="60"></label>
+            </div>
+            <div class="form-row">
+                <button class="run-btn" data-kind="disk">Run Disk</button>
+                <span class="status"></span>
+            </div>
+            <pre class="output"></pre>
+        </div>
+    </section>
+
+    <section class="card" data-card="gpu" hidden>
+        <header class="card-head">
+            <span class="card-title">GPU</span>
+            <span class="card-chevron">&#9656;</span>
+        </header>
+        <div class="card-body" hidden>
+            <p class="card-blurb">gpu-fryer (HuggingFace) &middot; fp16 matmul on tensor cores;
+                reports TFLOPs and flags thermal throttling. One process per
+                selected GPU, run in parallel.</p>
+            <div class="form-row">
+                <fieldset id="gpu-fieldset">
+                    <legend>GPUs to stress</legend>
+                </fieldset>
+                <label>Seconds <input type="number" name="seconds" min="5" value="60"></label>
+            </div>
+            <div class="form-row">
+                <button class="run-btn" data-kind="gpu">Run GPU</button>
+                <span class="status"></span>
+            </div>
+            <div class="gpu-outputs"></div>
+        </div>
+    </section>
+</main>
+
+<script src="/static/main.js"></script>
+</body>
+</html>

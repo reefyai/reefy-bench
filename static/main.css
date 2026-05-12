@@ -1,0 +1,224 @@
+/* reefy-bench - palette matches the metrics-card refresh in
+   reefy-service (page #0a0a0a, card #141414, accent #34d399).
+   The layout is intentionally similar so the bench app looks
+   like part of the same product. */
+
+:root {
+    --bg:           #0a0a0a;
+    --card-bg:      #141414;
+    --card-border:  #262626;
+    --card-hover:   #1a1a1a;
+    --inner-border: #1c1c1c;
+    --text:         #ddd;
+    --text-dim:     #8a8a8a;
+    --text-faint:   #555;
+    --accent:       #34d399;
+    --accent-hover: #22c486;
+    --accent-deep:  #052e1c;
+    --warn:         #fbbf24;
+    --danger:       #e63232;
+    --input-bg:     #0e0e0e;
+    --input-border: #2a2a2a;
+    --output-bg:    #050505;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+.page-head {
+    padding: 1.1rem 1.5rem 0.9rem;
+    border-bottom: 1px solid var(--inner-border);
+}
+.page-head h1 {
+    margin: 0 0 0.35rem;
+    font: 700 1.15rem -apple-system, sans-serif;
+    letter-spacing: 0.02em;
+}
+#hw-banner {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+main {
+    max-width: 920px;
+    padding: 1.1rem 1.5rem 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    box-shadow: 0 1px 0 var(--bg) inset, 0 0 0 1px var(--bg);
+    overflow: hidden;
+}
+
+.card-head {
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.card-head:hover { background: var(--card-hover); }
+.card-title {
+    font: 700 13px -apple-system, sans-serif;
+    color: #e8e8e8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.card-chevron {
+    color: var(--text-faint);
+    transition: transform 0.15s ease;
+    font-size: 0.85rem;
+}
+.card.open .card-chevron { transform: rotate(90deg); }
+
+.card-body {
+    padding: 0.85rem;
+    border-top: 1px solid var(--inner-border);
+}
+
+.card-blurb {
+    margin: 0 0 0.7rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+}
+.form-row:last-of-type { margin-bottom: 0.7rem; }
+
+.form-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+input[type="number"],
+select {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--input-border);
+    border-radius: 3px;
+    padding: 0.3rem 0.45rem;
+    font: 0.85rem inherit;
+    min-width: 5em;
+}
+input[type="number"]:focus,
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+fieldset {
+    border: 1px solid var(--input-border);
+    border-radius: 3px;
+    padding: 0.35rem 0.6rem 0.45rem;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+fieldset legend {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    padding: 0 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+fieldset label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+}
+fieldset input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.run-btn {
+    background: var(--accent);
+    color: var(--accent-deep);
+    border: none;
+    border-radius: 3px;
+    padding: 0.4rem 1rem;
+    font: 600 0.85rem inherit;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+}
+.run-btn:hover { background: var(--accent-hover); }
+.run-btn:disabled {
+    background: #2a2a2a;
+    color: var(--text-faint);
+    cursor: not-allowed;
+}
+
+.status {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+.status.running { color: var(--warn); }
+.status.done    { color: var(--accent); }
+.status.error   { color: var(--danger); }
+
+.output,
+.gpu-output {
+    background: var(--output-bg);
+    border: 1px solid var(--inner-border);
+    border-radius: 3px;
+    color: #b5b5b5;
+    font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 0;
+    padding: 0.5rem 0.7rem;
+    max-height: 360px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.4;
+}
+.output:empty,
+.gpu-output:empty { display: none; }
+
+.gpu-outputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.gpu-output-label {
+    font: 600 11px -apple-system, sans-serif;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.2rem;
+}
+.gpu-output-label .gpu-output-status {
+    margin-left: 0.4rem;
+    font-weight: 500;
+}
+.gpu-output-label .gpu-output-status.done  { color: var(--accent); }
+.gpu-output-label .gpu-output-status.error { color: var(--danger); }
+.gpu-output-label .gpu-output-status.running { color: var(--warn); }
