@@ -28,10 +28,11 @@ from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
-# fio scratch lives on the app's `data` volume so the test writes go
-# to real disk (not container overlay tmpfs). The reconciler creates
-# the mount; we just need the subdir.
-FIO_SCRATCH_DIR = '/var/lib/reefy-bench/fio-scratch'
+# fio scratch lives on the app's `data` volume (host path
+# /mnt/reefy-data/apps/<instance>/data/) so the test writes hit real
+# disk, not the container overlay tmpfs. The reconciler creates the
+# mount; we just need the subdir.
+FIO_SCRATCH_DIR = '/data/fio-scratch'
 FIO_SCRATCH_FILE = os.path.join(FIO_SCRATCH_DIR, 'scratch')
 
 # Cap per-job stdout to avoid unbounded growth from a wedged test.

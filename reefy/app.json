@@ -1,14 +1,14 @@
 {
   "slug": "bench",
-  "version": "v2026.05.12-05",
+  "version": "v2026.05.12-06",
   "name": "Bench",
   "icon": "/static/icons/bench.png",
   "description": "Stress tests: CPU/memory (sysbench), disk (fio), GPU (gpu-fryer)",
-  "image": "ghcr.io/reefyai/reefy-bench:v2026.05.12-05",
+  "image": "ghcr.io/reefyai/reefy-bench:v2026.05.12-06",
   "default_port": 8500,
   "volumes": {
     "data": {
-      "mount": "/var/lib/reefy-bench",
+      "mount": "/data",
       "uid": 0,
       "backup": []
     }
