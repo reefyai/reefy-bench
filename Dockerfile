@@ -11,11 +11,16 @@
 # hides itself, sysbench and fio keep working.
 
 # ── stage 1: build gpu-fryer ──────────────────────────────────────
-FROM rust:1.81-slim AS fryer
+# Rust 1.86 (Mar 2026) is the floor: gpu-fryer's transitive deps pull
+# clap_lex 1.1.0 which requires Cargo's edition2024 (stable since 1.85).
+# --locked honours upstream's Cargo.lock so dep resolution stays
+# reproducible across rebuilds.
+FROM rust:1.86-slim AS fryer
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git ca-certificates pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
-RUN cargo install --git https://github.com/huggingface/gpu-fryer --root /opt
+RUN cargo install --git https://github.com/huggingface/gpu-fryer \
+        --locked --root /opt
 
 # ── stage 2: runtime ──────────────────────────────────────────────
 FROM nvidia/cuda:12.6.3-runtime-ubuntu24.04
