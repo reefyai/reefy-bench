@@ -54,6 +54,9 @@ EXPOSE 8500
 
 # 2 worker procs × 8 threads each is plenty for polling-driven UI;
 # spawning subprocesses is what the workers mostly do.
-CMD ["gunicorn", "-b", "0.0.0.0:8500", \
+# `python3 -m gunicorn` instead of the bare binary - Ubuntu 24.04's
+# python3-gunicorn package no longer installs /usr/bin/gunicorn, but
+# the Python module is always there.
+CMD ["python3", "-m", "gunicorn", "-b", "0.0.0.0:8500", \
      "-w", "2", "-k", "gthread", "--threads", "8", \
      "--access-logfile", "-", "server:app"]
