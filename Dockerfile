@@ -52,11 +52,14 @@ COPY static /app/static/
 
 EXPOSE 8500
 
-# 2 worker procs × 8 threads each is plenty for polling-driven UI;
-# spawning subprocesses is what the workers mostly do.
+# Single worker is intentional: the job registry is an in-process
+# dict, so a poll landing on a different worker than the one that
+# spawned the job 404s. `--threads 8` gives enough HTTP concurrency
+# (each subprocess streams its own stdout from a daemon thread, not
+# the worker thread), and one bench container is one user anyway.
 # `python3 -m gunicorn` instead of the bare binary - Ubuntu 24.04's
 # python3-gunicorn package no longer installs /usr/bin/gunicorn, but
 # the Python module is always there.
 CMD ["python3", "-m", "gunicorn", "-b", "0.0.0.0:8500", \
-     "-w", "2", "-k", "gthread", "--threads", "8", \
+     "-w", "1", "-k", "gthread", "--threads", "8", \
      "--access-logfile", "-", "server:app"]
