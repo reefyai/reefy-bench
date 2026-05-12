@@ -285,7 +285,9 @@ def run_gpu():
         env['CUDA_VISIBLE_DEVICES'] = str(idx)
         model = next(g['model'] for g in gpus if g['idx'] == idx)
         label = f'GPU {idx} ({model})'
-        cmd = ['gpu-fryer', '--duration', str(seconds)]
+        # gpu-fryer takes duration as a positional arg (DURATION_SECS),
+        # not a --duration flag - it bails with "unexpected argument".
+        cmd = ['gpu-fryer', str(seconds)]
         job_ids.append(_spawn_job('gpu', cmd, env=env, label=label))
     return jsonify(job_ids=job_ids)
 
