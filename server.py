@@ -35,6 +35,19 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 FIO_SCRATCH_DIR = '/data/fio-scratch'
 FIO_SCRATCH_FILE = os.path.join(FIO_SCRATCH_DIR, 'scratch')
 
+# The workload simulator's disk_wave allocates this file. Normally
+# its end-of-run unlink cleans it up, but a wedged subprocess or a
+# hard container restart can leave it squatting on disk space. Sweep
+# at startup so a fresh container always begins with no stale alloc.
+_WORKLOAD_DISK_FILE = '/data/workload'
+try:
+    os.unlink(_WORKLOAD_DISK_FILE)
+except FileNotFoundError:
+    pass
+except OSError as _exc:
+    print(f'[reefy-bench] could not clean {_WORKLOAD_DISK_FILE}: {_exc}',
+          flush=True)
+
 # Cap per-job stdout to avoid unbounded growth from a wedged test.
 # sysbench/fio output a few hundred lines max; gpu-fryer is chattier
 # but still well under this ceiling for the supported run lengths.
