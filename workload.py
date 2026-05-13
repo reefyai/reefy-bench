@@ -99,46 +99,66 @@ def mem_wave(duration: int) -> None:
 
 
 def disk_wave(duration: int) -> None:
-    """Random-rw bursts on the data volume with short idle gaps.
-    File size is a fixed fraction of free space, computed once at
-    start; fio re-uses that file across bursts so we don't pay
-    fallocate cost on every slice."""
+    """Cycle disk-space allocation up and down using fallocate.
+
+    The device-side metric for the Disk panel is `reefy_disk_used_pct`
+    - a capacity gauge, not an IO meter. So to make that graph rise
+    and fall during the workload, we don't need to push real IO; we
+    just need to occupy and release blocks. `fallocate -l <N>` reserves
+    real blocks on ext4/xfs (counts toward `df`) without writing any
+    bytes, so the operation is near-instant and the metric tracks it.
+
+    On each slice we unlink + fallocate to a new target size; this
+    keeps the algorithm simple (always-fresh file, no shrink-vs-grow
+    branching) and the change is immediately visible to statvfs."""
     end = time.time() + duration
     try:
         free = shutil.disk_usage(DATA_DIR).free
     except OSError as exc:
         _print('disk-wave', f'cannot stat {DATA_DIR}: {exc}')
         return
-    target = max(DISK_MIN_BYTES, int(free * DISK_FRACTION))
-    size_gb = max(1, target // (1024 ** 3))
+    # Upper bound: never allocate more than 70% of what was free
+    # at start. Leaves headroom for OS bookkeeping + other apps.
+    max_bytes = max(DISK_MIN_BYTES, int(free * DISK_FRACTION))
+    max_gb = max(1, max_bytes // (1024 ** 3))
     os.makedirs(DATA_DIR, exist_ok=True)
     _print('disk-wave',
-           f'using {size_gb}G file at {DISK_FILE} ({DISK_FRACTION:.0%} '
-           f'of {free // (1024 ** 3)}G free)')
+           f'cycling allocation up to {max_gb}G ({DISK_FRACTION:.0%} of '
+           f'{free // (1024 ** 3)}G free); '
+           f'fallocate reserves blocks without writing bytes')
 
-    bursts = [8, 12, 15, 6, 20]
-    idles = [4, 5, 3, 8, 4]
+    # Fractions of max_bytes per slice. Mix of small and large so the
+    # graph traces a clear sawtooth rather than a monotonic ramp.
+    levels = [20, 60, 10, 80, 40, 70, 30]
     i = 0
     while time.time() < end:
-        burst = _slice_remaining(end, bursts[i % len(bursts)])
+        pct = levels[i % len(levels)]
+        target = max(DISK_MIN_BYTES, int(max_bytes * pct / 100))
+        target_gb = max(1, target // (1024 ** 3))
+        slice_s = _slice_remaining(end, 10)
         _print('disk-wave',
-               f'burst {i}: {burst}s random rw 50/50 on {size_gb}G file')
-        subprocess.run(
-            ['fio', f'--name=workload-{i}',
-             f'--filename={DISK_FILE}',
-             f'--size={size_gb}G',
-             '--rw=randrw', '--rwmixread=50',
-             '--bs=1M', '--ioengine=libaio', '--direct=1',
-             '--iodepth=16',
-             f'--runtime={burst}', '--time_based',
-             '--group_reporting', '--minimal'])
-        if time.time() >= end:
-            break
-        idle = _slice_remaining(end, idles[i % len(idles)])
-        if idle > 0:
-            _print('disk-wave', f'idle: {idle}s')
-            time.sleep(idle)
+               f'slice {i}: fallocate {target_gb}G ({pct}% of allowance) '
+               f'for {slice_s}s')
+        try:
+            os.unlink(DISK_FILE)
+        except FileNotFoundError:
+            pass
+        r = subprocess.run(
+            ['fallocate', '-l', str(target), DISK_FILE],
+            capture_output=True, text=True)
+        if r.returncode != 0:
+            _print('disk-wave',
+                   f'fallocate failed (rc={r.returncode}): '
+                   f'{r.stderr.strip() or r.stdout.strip()}')
+            return
+        time.sleep(slice_s)
         i += 1
+    # Best-effort cleanup so we don't squat on space after the run.
+    try:
+        os.unlink(DISK_FILE)
+        _print('disk-wave', 'released allocation')
+    except FileNotFoundError:
+        pass
     _print('disk-wave', 'done')
 
 
