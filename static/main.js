@@ -192,17 +192,19 @@ async function runSingle(card, kind, payload) {
     return true;
 }
 
-async function runGpu(card, payload) {
-    if (!payload.gpu_indices.length) {
-        setStatus(card, 'pick at least one GPU', 'error');
-        return false;
-    }
+async function runMulti(card, endpoint, payload, opts) {
+    /* Multi-job runner: POSTs the payload, expects {job_ids: [...]},
+     * renders one output block per job inside the card's .gpu-outputs
+     * container, polls each in parallel. Used by both the GPU card
+     * (one job per selected device) and the Simulate Workload card
+     * (one job per subsystem). opts.runningLabel = string shown in
+     * the card status while jobs are in flight. */
     const outsWrap = $('.gpu-outputs', card);
     outsWrap.innerHTML = '';
 
     let resp;
     try {
-        const r = await fetch('/api/run/gpu', {
+        const r = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -214,11 +216,12 @@ async function runGpu(card, payload) {
         return false;
     }
 
+    const total = resp.job_ids.length;
     setStatus(card,
-        'running on ' + resp.job_ids.length + ' GPU(s)…',
+        (opts && opts.runningLabel || 'running') +
+            ' (' + total + ' job' + (total === 1 ? '' : 's') + ')…',
         'running');
 
-    // Build one output block per GPU + track completion across them.
     const finished = new Map();
     resp.job_ids.forEach((jid) => {
         const wrap = document.createElement('div');
@@ -238,7 +241,6 @@ async function runGpu(card, payload) {
             jid,
             (job) => {
                 if (job.label) {
-                    // First non-status text node is the label; replace it.
                     lbl.firstChild.nodeValue = job.label + ' ';
                 }
                 pre.textContent = job.stdout || '';
@@ -251,7 +253,7 @@ async function runGpu(card, payload) {
                         ? ' (rc=' + job.returncode + ')'
                         : '');
                 finished.set(jid, job);
-                if (finished.size === resp.job_ids.length) {
+                if (finished.size === total) {
                     const anyErr = Array.from(finished.values())
                         .some((j) => j.status === 'error');
                     setStatus(card,
@@ -265,6 +267,20 @@ async function runGpu(card, payload) {
     return true;
 }
 
+async function runGpu(card, payload) {
+    if (!payload.gpu_indices.length) {
+        setStatus(card, 'pick at least one GPU', 'error');
+        return false;
+    }
+    return runMulti(card, '/api/run/gpu', payload,
+        { runningLabel: 'running on GPU' });
+}
+
+async function runWorkload(card, payload) {
+    return runMulti(card, '/api/run/workload', payload,
+        { runningLabel: 'simulating workload' });
+}
+
 function bindRunButtons() {
     $$('.run-btn').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -273,9 +289,10 @@ function bindRunButtons() {
             btn.disabled = true;
             setStatus(card, 'starting…');
             const payload = collectPayload(card, kind);
-            const ok = kind === 'gpu'
-                ? await runGpu(card, payload)
-                : await runSingle(card, kind, payload);
+            let ok;
+            if (kind === 'gpu')           ok = await runGpu(card, payload);
+            else if (kind === 'workload') ok = await runWorkload(card, payload);
+            else                          ok = await runSingle(card, kind, payload);
             if (!ok) btn.disabled = false;
         });
     });

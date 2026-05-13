@@ -13,6 +13,29 @@
 </header>
 
 <main>
+    <section class="card" data-card="workload">
+        <header class="card-head">
+            <span class="card-title">Simulate Workload</span>
+            <span class="card-chevron">&#9656;</span>
+        </header>
+        <div class="card-body" hidden>
+            <p class="card-blurb">Mixed CPU + memory + disk + GPU load, varied
+                over time to look like a real app: thread counts and held memory
+                cycle through slices, disk + GPU alternate bursts with idles.
+                Use to validate thermal, PSU and reconciler behaviour under
+                sustained mixed pressure. One process per subsystem (and per
+                GPU) - outputs stream side by side.</p>
+            <div class="form-row">
+                <label>Seconds <input type="number" name="seconds" min="10" value="120"></label>
+            </div>
+            <div class="form-row">
+                <button class="run-btn" data-kind="workload">Run workload</button>
+                <span class="status"></span>
+            </div>
+            <div class="gpu-outputs"></div>
+        </div>
+    </section>
+
     <section class="card" data-card="cpu">
         <header class="card-head">
             <span class="card-title">CPU</span>

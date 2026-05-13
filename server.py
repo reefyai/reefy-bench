@@ -292,6 +292,42 @@ def run_gpu():
     return jsonify(job_ids=job_ids)
 
 
+@app.post('/api/run/workload')
+def run_workload():
+    """Mixed workload simulation: spawn four wave processes (CPU,
+    memory, disk, plus one gpu-wave per detected NVIDIA GPU) that
+    each cycle through varying load levels over the run duration.
+    Each becomes its own job - the UI renders them side-by-side via
+    the same multi-job pattern the /api/run/gpu endpoint uses.
+
+    Only knob is `seconds` - the per-subsystem load curve is fixed
+    in workload.py so the simulation is reproducible across runs."""
+    data = request.get_json(silent=True) or {}
+    seconds = max(10, int(data.get('seconds') or 120))
+
+    wave_cmd = lambda kind: ['python3', '-u', '/app/workload.py',
+                             kind, str(seconds)]
+
+    job_ids = [
+        _spawn_job('cpu',  wave_cmd('cpu'),  label='CPU wave'),
+        _spawn_job('mem',  wave_cmd('mem'),  label='Memory wave'),
+        _spawn_job('disk', wave_cmd('disk'), label='Disk wave'),
+    ]
+
+    # GPU waves: one process per detected NVIDIA card, isolated via
+    # CUDA_VISIBLE_DEVICES so each gpu-fryer inside the wave sees
+    # exactly one device. Silently no-op if no GPU is present -
+    # the rest of the workload still runs.
+    for g in _list_nvidia_gpus():
+        env = os.environ.copy()
+        env['CUDA_VISIBLE_DEVICES'] = str(g['idx'])
+        job_ids.append(_spawn_job(
+            'gpu', wave_cmd('gpu'), env=env,
+            label=f'GPU {g["idx"]} wave ({g["model"]})'))
+
+    return jsonify(job_ids=job_ids)
+
+
 @app.get('/api/jobs/<job_id>')
 def get_job(job_id: str):
     with _JOBS_LOCK:

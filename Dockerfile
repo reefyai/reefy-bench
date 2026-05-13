@@ -38,7 +38,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        sysbench fio \
+        sysbench fio stress-ng \
         python3 python3-flask python3-gunicorn \
         pciutils procps ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=fryer /opt/bin/gpu-fryer /usr/local/bin/gpu-fryer
 
 WORKDIR /app
-COPY server.py /app/
+COPY server.py workload.py /app/
 COPY templates /app/templates/
 COPY static /app/static/
 
