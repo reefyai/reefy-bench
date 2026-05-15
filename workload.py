@@ -36,6 +36,13 @@ DISK_FILE = os.path.join(DATA_DIR, 'workload')
 DISK_FRACTION = 0.70
 DISK_MIN_BYTES = 256 * 1024 * 1024  # don't run trivially small
 
+# Every level the wave settles at must outlast at least one publisher
+# sample cycle, otherwise a slice can fall entirely between two :00
+# boundaries and the metric never captures it. The publisher cadence
+# is 60s aligned, so 90s slices safely cover 1-2 sample boundaries
+# regardless of how the run lines up with wall-clock minutes.
+SLICE_S = 90
+
 
 def _print(tag: str, msg: str) -> None:
     print(f'[{tag}] {msg}', flush=True)
@@ -48,7 +55,7 @@ def _slice_remaining(end_ts: float, max_s: int) -> int:
 
 def cpu_wave(duration: int) -> None:
     """Cycle sysbench cpu through thread counts at 20% -> 100% of
-    cores in 10s slices. Each slice runs to completion; if the
+    cores in SLICE_S slices. Each slice runs to completion; if the
     duration runs out mid-slice the loop breaks at the next boundary."""
     end = time.time() + duration
     nproc = os.cpu_count() or 1
@@ -57,7 +64,7 @@ def cpu_wave(duration: int) -> None:
     while time.time() < end:
         pct = levels[i % len(levels)]
         threads = max(1, round(nproc * pct / 100))
-        slice_s = _slice_remaining(end, 10)
+        slice_s = _slice_remaining(end, SLICE_S)
         _print('cpu-wave',
                f'slice {i}: {threads} threads ({pct}% of {nproc} cores) '
                f'for {slice_s}s')
@@ -77,15 +84,15 @@ def cpu_wave(duration: int) -> None:
 
 
 def mem_wave(duration: int) -> None:
-    """Hold varying fractions of RAM in 12s slices. stress-ng with
-    --vm-keep holds the allocation for the slice duration rather than
-    looping bandwidth tests."""
+    """Hold varying fractions of RAM in SLICE_S slices. stress-ng
+    with --vm-keep holds the allocation for the slice duration rather
+    than looping bandwidth tests."""
     end = time.time() + duration
     levels = [20, 50, 70, 35, 60]
     i = 0
     while time.time() < end:
         pct = levels[i % len(levels)]
-        slice_s = _slice_remaining(end, 12)
+        slice_s = _slice_remaining(end, SLICE_S)
         _print('mem-wave',
                f'slice {i}: holding {pct}% of RAM for {slice_s}s')
         subprocess.run(
@@ -127,15 +134,20 @@ def disk_wave(duration: int) -> None:
            f'{free // (1024 ** 3)}G free); '
            f'fallocate reserves blocks without writing bytes')
 
-    # Fractions of max_bytes per slice. Mix of small and large so the
-    # graph traces a clear sawtooth rather than a monotonic ramp.
-    levels = [20, 60, 10, 80, 40, 70, 30]
+    # Triangle wave: monotonic climb to the high-water mark, then a
+    # monotonic descent back to baseline. Reads on the dashboard as a
+    # plausible "app accumulating data over time, then a cleanup
+    # cycle reclaiming space". Previous version cycled through random-
+    # looking percentages (20-60-10-80-40-70-30) which jumped wildly
+    # between every slice and looked like a synthetic torture test
+    # rather than a workload.
+    levels = [10, 25, 40, 55, 70, 55, 40, 25]
     i = 0
     while time.time() < end:
         pct = levels[i % len(levels)]
         target = max(DISK_MIN_BYTES, int(max_bytes * pct / 100))
         target_gb = max(1, target // (1024 ** 3))
-        slice_s = _slice_remaining(end, 10)
+        slice_s = _slice_remaining(end, SLICE_S)
         _print('disk-wave',
                f'slice {i}: fallocate {target_gb}G ({pct}% of allowance) '
                f'for {slice_s}s')
@@ -163,21 +175,23 @@ def disk_wave(duration: int) -> None:
 
 
 def gpu_wave(duration: int) -> None:
-    """gpu-fryer bursts (8-25s) interleaved with idle gaps (3-8s).
+    """gpu-fryer bursts interleaved with idle gaps. Both phases run
+    at SLICE_S so each one is captured by at least one publisher
+    cycle; shorter bursts/idles alias out at the 60s sample cadence
+    and the panel just shows a constant 0% or 100%.
+
     Caller pins the process to one GPU via CUDA_VISIBLE_DEVICES so
     multiple gpu_wave instances run in parallel exercise different
     cards independently."""
     end = time.time() + duration
-    bursts = [15, 10, 20, 8, 25]
-    idles = [5, 3, 6, 4, 5]
     i = 0
     while time.time() < end:
-        burst = _slice_remaining(end, bursts[i % len(bursts)])
+        burst = _slice_remaining(end, SLICE_S)
         _print('gpu-wave', f'burst {i}: {burst}s of gpu-fryer')
         subprocess.run(['gpu-fryer', str(burst)])
         if time.time() >= end:
             break
-        idle = _slice_remaining(end, idles[i % len(idles)])
+        idle = _slice_remaining(end, SLICE_S)
         if idle > 0:
             _print('gpu-wave', f'idle: {idle}s')
             time.sleep(idle)
